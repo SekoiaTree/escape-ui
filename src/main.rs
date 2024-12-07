@@ -174,6 +174,7 @@ struct App {
     current_tab: usize,
     usbs_plugged: [bool; 5],
     watcher: mpsc::Receiver<notify::Result<notify::Event>>,
+    sound_manager: awedio::manager::Manager,
 }
 
 impl StatefulWidget for &App {
@@ -194,7 +195,7 @@ impl StatefulWidget for &App {
         self.tabs[self.current_tab].render_ref(window_control, buf, &mut state[self.current_tab]);
         let left_span = Span::styled("! AVERTISSEMENT: DISQUE PARTIELLEMENT CORROMPU. CERTAINES DONNÉES PEUVENT ÊTRE PERDUES.", Color::Red);
         let good_usb_count = self.usbs_plugged.iter().filter(|&&x| x).count();
-        let right_span = if good_usb_count >= 2 {
+        let right_span = if good_usb_count >= 2 && self.usbs_plugged[4] {
             Span::styled(format!("{}/4", good_usb_count-1), Color::Green)
         } else {
             Span::styled("", Style::new())
@@ -205,7 +206,7 @@ impl StatefulWidget for &App {
 }
 
 impl App {
-    pub fn new(tabs: Vec<TabUi>, watcher: mpsc::Receiver<notify::Result<notify::Event>>) -> Result<Self, ()> {
+    pub fn new(tabs: Vec<TabUi>, watcher: mpsc::Receiver<notify::Result<notify::Event>>, manager: awedio::manager::Manager) -> Result<Self, ()> {
         if tabs.len() == 0 {
             return Err(());
         }
@@ -215,6 +216,7 @@ impl App {
             current_tab: 0,
             usbs_plugged: [false; 5],
             watcher,
+            sound_manager: manager,
         })
     }
 
@@ -233,9 +235,18 @@ impl App {
             if event::poll(Duration::from_millis(50))? {
                 let event = event::read()?;
                 if let Event::Key(key) = event {
-                    if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q')
-                        && key.modifiers == KeyModifiers::ALT {
-                        return Ok(());
+                    if key.kind == KeyEventKind::Press && key.modifiers == KeyModifiers::ALT {
+                        if let KeyCode::Char(code) = key.code {
+                            match code {
+                                'q' => {
+                                    return Ok(());
+                                },
+                                '1'..='4' => {
+                                    self.usbs_plugged[((code as u8)-b'1') as usize] = true;
+                                },
+                                _ => {}
+                            }
+                        }
                     }
                 }
                 match self.tabs[self.current_tab].handle_input(event, &mut states[self.current_tab]) {
@@ -243,6 +254,9 @@ impl App {
                         if self.current_tab >= 2 && self.current_tab < 6 {
                             // USB tab redirected, so it's approved!
                             self.usbs_plugged[self.current_tab - 2] = true;
+                            if let Ok(x) = awedio::sounds::open_file(Path::new("confirm.wav")) {
+                                self.sound_manager.play(x);
+                            }
                         }
 
                         self.current_tab = new_tab;
@@ -324,14 +338,14 @@ fn render(terminal: DefaultTerminal) -> anyhow::Result<()> {
             TabState::Password(PasswordEntryState::new()),
             TabState::Email(EmailProgramState::new()),
             TabState::Decrypt(DecryptState::new()),
-            TabState::Music(MusicPlayerState::new(manager)),
+            TabState::Music(MusicPlayerState::new(manager.clone())),
             TabState::SuccessfulInstall(SuccessfulInstallState::new()),
             TabState::TimeTrial(TimeTrialState::Calculations(0, "".into(), false)),
             TabState::Victory(VictoryState::new()),
         ]
     };
 
-    let mut app = App::new(ui, rx).expect("Can't fail creating");
+    let mut app = App::new(ui, rx, manager).expect("Can't fail creating");
     if mdp.is_empty() {
         app.current_tab = 1;
     }

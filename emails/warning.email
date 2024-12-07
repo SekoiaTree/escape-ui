@@ -1,10 +1,10 @@
-from: julien.morel@isras.ch
-to: emilie.chavanne@isras.ch
+from: lucas.morel@isras.ch
+to: eve.chavanne@isras.ch
 cc:
 date: 1985-04-12 (09:14)
 subject: Derniers ajustements sur le MPA
 
-Émilie,
+Ève,
 
 J’ai fait une passe sur l’algorithme de simulation des conflits pour le Module Pacifiste Avancé. Les résultats sont impressionnants : dans 87 % des scénarios, ALMA propose une solution diplomatique viable.
 
@@ -12,4 +12,4 @@ Mais je m’inquiète pour la suite. Hier, au briefing, le général Maillard n�
 
 Si on veut que tout ce travail serve à quelque chose, il va falloir être... discrets. Je pense à une solution. On en parle ce soir ?
 
--Julien
+-Lucas
